@@ -1,37 +1,46 @@
-<b>NumViewer</b>
-<br>
-A lightweight tool for visualizing NumPy arrays.
-<br><br>
+# NumViewer
 
-<b>Navigation</b><br>
-Previous / next array: Shift + Tab / Tab
-<br>
-Previous / next slice: A / D
-<br>
-(Fast) slice scroll: (Shift +) Mouse wheel
-<br>
-Zoom: Left mouse drag; or Ctrl + mouse wheel
-<br>
-Pan: Middle mouse drag
-<br><br>
+A lightweight tool for visualizing NumPy arrays. 
 
-<b>View</b><br>
-Center: C
-<br>
-Rotate -90° / +90°: Shift + R / R
-Flip horizontally / vertically: X / Y
-<br>
-Reset: Q
-<br><br>
+Install via `pip install -r requirements.txt`.
 
-<b>Window / Level</b><br>
-Brightness / contrast: Right mouse drag
-<br>
-Auto-window: Space
-<br><br>
+Execute via `python3 numviewer.py <path/to/your/numpy/file>`.
 
-<b>Application</b><br>
-Ctrl + Q: Quit
-<br><br>
+---
 
-<small>&copy; NumViewer 2026 by Daniel Frey (daniel.frey@tum.de)</small>
+## Navigation
+
+- Previous / next array: Shift + Tab / Tab
+- Previous / next slice: A / D
+- (Fast) slice scroll: (Shift +) Mouse wheel
+- Zoom: Left mouse drag; or Ctrl + Mouse wheel
+- Pan: Middle mouse drag
+
+---
+
+## View
+
+- Cycle through transpositions: T
+- Center: C
+- Rotate -90° / +90°: Shift + R / R
+- Flip horizontally / vertically: X / Y
+- Reset: Q
+
+---
+
+## Window / Level
+
+- Brightness / contrast: Right mouse drag
+- Auto-window: Space
+
+---
+
+## Application
+
+- Export view as PNG: Ctrl + S
+- Export all slices as PNG: Ctrl + Shift + S
+- Quit: Ctrl + Q
+
+---
+
+<small>© NumViewer 2026 by Daniel Frey (daniel.frey@tum.de)</small>

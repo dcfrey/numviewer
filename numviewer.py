@@ -1,28 +1,57 @@
 import sys
-import numpy as np
-import cv2
 from pathlib import Path
+
+import imageio.v2 as imageio
+import numpy as np
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import (
+    QImage, QPixmap, QPainter, QFont, QFontMetrics, QKeySequence
+)
 from PyQt5.QtWidgets import (
     QApplication, QSlider, QLabel, QVBoxLayout, QWidget,
-    QPushButton, QHBoxLayout, QSizePolicy
+    QPushButton, QHBoxLayout, QSizePolicy, QDoubleSpinBox, 
+    QMessageBox, QToolBar, QAction, QComboBox, QShortcut, 
+    QDialog, QTextEdit, QTextBrowser
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtGui import QPainter
-from PyQt5.QtWidgets import QDoubleSpinBox
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtWidgets import QToolBar, QAction
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QWidget, QSizePolicy
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QComboBox
-from PyQt5.QtGui import QFontMetrics
-from PyQt5.QtWidgets import QShortcut
-from PyQt5.QtGui import QKeySequence
 
 
 DEFAULT_TRANSPOSE = [0, 1, 2]
 PMIN, PMAX = 20, 97.5
+
+
+class HelpDialog(QDialog):
+    def __init__(self, markdown_text, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("NumViewer Help")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+
+        self.text = QTextBrowser()
+        self.text.setOpenExternalLinks(True)
+        self.text.setMarkdown(markdown_text)
+
+        self.text.setFrameStyle(QTextBrowser.NoFrame)
+
+        self.text.setStyleSheet("""
+            QTextBrowser {
+                background-color: #111;
+                color: #ddd;
+                border: none;
+                font-size: 12px;
+            }
+        """)
+
+        layout.addWidget(self.text)
+
+        # --- auto-size to content ---
+        doc = self.text.document()
+        doc.setTextWidth(500)
+
+        height = int(doc.size().height()) + 30
+
+        self.resize(540, min(height, 900))
 
 
 # ----------------- SliceView -----------------
@@ -55,7 +84,7 @@ class SliceView(QWidget):
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setScaledContents(True)
-        self.image_label.setMinimumSize(0, 0)
+        self.image_label.setMinimumSize(20, 20)
         self.image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
                 
         self.image_label.installEventFilter(self)
@@ -99,10 +128,30 @@ class SliceView(QWidget):
         button_layout.addWidget(btn_flip_y)
         button_layout.addWidget(btn_reset)
 
+        # ---------------- Plane title ----------------
+        plane_names = {
+            "ax": "Axial",
+            "cor": "Coronal",
+            "sag": "Sagittal",
+        }
+        self.title_label = QLabel(plane_names[self.plane])
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("""
+            QLabel {
+                color: #ddd;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 2px;
+            }
+        """)
+
         # ---------------- Main layout ----------------
         layout = QVBoxLayout()
+        layout.setSpacing(4)
+
+        layout.addWidget(self.title_label)
         layout.addWidget(self.image_frame, stretch=1)
-        
+
         layout.addLayout(slider_layout)
         layout.addLayout(button_layout)
 
@@ -115,14 +164,35 @@ class SliceView(QWidget):
     # --------------------------------------------------------
     
     def update_border(self):
+        color = "#3a99f2"
+
         if self.is_active:
             self.image_frame.setStyleSheet(
-                "border: 2px solid #00AEEF;"
+                f"border: 3px solid {color};"
             )
+
+            self.title_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {color};
+                    font-weight: bold;
+                    font-size: 12px;
+                    padding: 2px;
+                }}
+            """)
+
         else:
             self.image_frame.setStyleSheet(
-                "border: 2px solid #222;"
+                "border: 3px solid #222;"
             )
+
+            self.title_label.setStyleSheet("""
+                QLabel {
+                    color: #222;
+                    font-weight: bold;
+                    font-size: 12px;
+                    padding: 2px;
+                }
+            """)
     
     def set_active(self, active):
         self.is_active = active
@@ -154,7 +224,10 @@ class SliceView(QWidget):
 
     def set_slice(self, idx):
         self.idx = idx
+        self.slider.blockSignals(True)
         self.slider.setValue(idx)
+        self.slider.blockSignals(False)
+        self.viewer.slice_idx[self.plane] = idx
         self.update_image()
 
     def update_image(self):
@@ -195,7 +268,6 @@ class SliceView(QWidget):
 
         # ---------------- Convert to Qt image ----------------
         h, w = img.shape
-
         qimg = QImage(
             img.data,
             w,
@@ -203,11 +275,8 @@ class SliceView(QWidget):
             w,
             QImage.Format_Grayscale8
         )
-
         self._orig_qimage = qimg
-
         pixmap = QPixmap.fromImage(qimg)
-
         self._set_pixmap(pixmap)
 
         # ---------------- Slice text ----------------
@@ -297,11 +366,11 @@ class SliceView(QWidget):
 
         # ---------------- Slice navigation ----------------
         base_step = 1
-        fast_step = 10
+        fast_step = 5
 
         # Shift = fast scroll
         if mods & Qt.ShiftModifier:
-            step = min(fast_step, self.slider.maximum() // 10)
+            step = max(fast_step, self.slider.maximum() // 20)
         else:
             step = base_step
 
@@ -473,6 +542,7 @@ class SliceView(QWidget):
 class Viewer(QWidget):
     def __init__(self, filepath, transpose):
         super().__init__()
+        self.setWindowTitle(f"NumViewer  ({Path(filepath).name})  ")
 
         self.filepath = filepath
         self.loaded_data = np.load(filepath, mmap_mode="c")
@@ -480,6 +550,8 @@ class Viewer(QWidget):
         self.array_selector = None
         self.active_plane = "ax"
         self.plane_order = ["ax", "cor", "sag"]
+        
+        self.help_dialog = None
         
         self.installEventFilter(self)
 
@@ -552,15 +624,17 @@ class Viewer(QWidget):
 
         toolbar.addWidget(label_axes)
         self.transpose_actions = {}
+        self.transpose_order = [
+            (0,1,2),
+            (1,2,0),
+            (2,0,1),
+            (0,2,1),
+            (1,0,2),
+            (2,1,0),
+        ]
 
-        for txt, axes in [
-            ("012", [0,1,2]),
-            ("120", [1,2,0]),
-            ("201", [2,0,1]),
-            ("021", [0,2,1]),
-            ("102", [1,0,2]),
-            ("210", [2,1,0]),
-        ]:
+        for axes in self.transpose_order:
+            txt = "".join(map(str, axes)) 
             act = QAction(txt, self)
             act.setCheckable(True)
             if tuple(axes) == self.transpose_axes:
@@ -747,7 +821,6 @@ class Viewer(QWidget):
         # ---------------- Array switching ----------------
         self.short_next_array = QShortcut(QKeySequence("Tab"), self)
         self.short_prev_array = QShortcut(QKeySequence("Shift+Tab"), self)
-
         self.short_next_array.activated.connect(self.next_array)
         self.short_prev_array.activated.connect(self.prev_array)
         
@@ -759,58 +832,48 @@ class Viewer(QWidget):
         self.short_ax = QShortcut(QKeySequence("1"), self)
         self.short_cor = QShortcut(QKeySequence("2"), self)
         self.short_sag = QShortcut(QKeySequence("3"), self)
-
         self.short_ax.activated.connect(lambda: self.set_active_plane("ax"))
         self.short_cor.activated.connect(lambda: self.set_active_plane("cor"))
         self.short_sag.activated.connect(lambda: self.set_active_plane("sag"))
+        
+        # ---------------- Transposition cycling ----------------
+        self.short_cycle_transpose = QShortcut(QKeySequence("T"), self)
+        self.short_cycle_transpose.activated.connect(self.cycle_transpose)
+        
+        # ---------------- Save views ----------------
+        self.short_save_current = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.short_save_all = QShortcut(QKeySequence("Ctrl+Shift+S"), self)
+        self.short_save_current.activated.connect(self.save_current_view)
+        self.short_save_all.activated.connect(self.save_all_views)
+        
+        self.reset_window()
 
     # --------------------------------------------------------
     
+    def load_help_text(self):
+        return (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
+    
     def show_help(self):
-        text = """
-        <b>NumViewer</b>
-        <br>
-        A lightweight tool for visualizing NumPy arrays.
-        <br><br>
-        
-        <b>Navigation</b><br>
-        Previous / next array: Shift + Tab / Tab
-        <br>
-        Previous / next slice: A / D
-        <br>
-        (Fast) slice scroll: (Shift +) Mouse wheel
-        <br>
-        Zoom: Left mouse drag; or Ctrl + mouse wheel
-        <br>
-        Pan: Middle mouse drag
-        <br><br>
-        
-        <b>View</b><br>
-        Center: C
-        <br>
-        Rotate -90° / +90°: Shift + R / R
-        Flip horizontally / vertically: X / Y
-        <br>
-        Reset: Q
-        <br><br>
-        
-        <b>Window / Level</b><br>
-        Brightness / contrast: Right mouse drag
-        <br>
-        Auto-window: Space
-        <br><br>
-        
-        <b>Application</b><br>
-        Ctrl + Q: Quit
-        <br><br>
-        
-        <small>&copy; NumViewer 2026 by Daniel Frey (daniel.frey@tum.de)</small>
-        """
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Help - Hotkeys")
-        msg.setText(text)
-        msg.setTextFormat(Qt.RichText)
-        msg.exec_()
+        path = Path(__file__).resolve().parent / "README.md"
+        text = path.read_text(encoding="utf-8")
+
+        if self.help_dialog is None:
+            self.help_dialog = HelpDialog(text, self)
+
+        self.help_dialog.show()
+        self.help_dialog.raise_()
+        self.help_dialog.activateWindow()
+    
+    def cycle_transpose(self):
+        current = tuple(self.transpose_axes)
+
+        try:
+            i = self.transpose_order.index(current)
+        except ValueError:
+            i = 0
+
+        next_axes = self.transpose_order[(i + 1) % len(self.transpose_order)]
+        self.apply_transpose(list(next_axes))
     
     def eventFilter(self, obj, event):
         if event.type() == event.KeyPress:
@@ -1076,6 +1139,48 @@ class Viewer(QWidget):
             vol = vol[0]
 
         self.set_volume(vol)
+    
+    def save_current_view(self):
+        out_dir = Path("exports")
+        out_dir.mkdir(exist_ok=True)
+        p = Path(self.filepath)
+        name = p.name.removesuffix("".join(p.suffixes))
+        key = self.current_array_key
+
+        for plane, view in self.slice_views.items():
+            pixmap = view.image_label.pixmap()
+            if pixmap is None:
+                continue
+
+            filename = out_dir / f"{name}_{key}_{plane}{view.idx:04d}.png"
+            pixmap.save(str(filename))
+
+        print(f"Saved current view to {out_dir}.")
+    
+    def save_all_views(self):
+        out_dir = Path("exports")
+        out_dir.mkdir(exist_ok=True)
+        p = Path(self.filepath)
+        name = p.name.removesuffix("".join(p.suffixes))
+        key = self.current_array_key
+
+        vol = self.vol_transformed
+
+        for plane, view in self.slice_views.items():
+            max_idx = view.slider.maximum()
+
+            for i in range(max_idx + 1):
+                view.set_slice(i)
+                QApplication.processEvents()  # ensure update_image runs
+
+                pixmap = view.image_label.pixmap()
+                if pixmap is None:
+                    continue
+
+                filename = out_dir / f"{name}_{key}_{plane}{i:04d}.png"
+                pixmap.save(str(filename))
+
+        print(f"Saved full volume to {out_dir}.")
 
 # ----------------- entry -----------------
 if __name__ == "__main__":

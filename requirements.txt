@@ -1,0 +1,5 @@
+ImageIO>=2.37.3
+numpy>=1.19.5
+PyQt5>=5.15.6
+PyQt5-Qt5>=5.15.18
+PyQt5-sip>=12.9.1
