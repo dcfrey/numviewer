@@ -2,9 +2,11 @@
 
 A lightweight tool for visualizing NumPy arrays. 
 
-Install via `pip install -r requirements.txt`.
+Install libraries via `pip install -r requirements.txt`.
 
-Execute via `python3 numviewer.py <path/to/your/numpy/file>`.
+Execute `python3 numviewer.py <path/to/your/numpy/file>`.
+
+System-wide app installation on Ubuntu: `bash install.sh`.
 
 ---
 
