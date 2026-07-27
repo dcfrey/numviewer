@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-import imageio.v2 as imageio
 import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import (
