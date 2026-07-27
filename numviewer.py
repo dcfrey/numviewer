@@ -15,7 +15,8 @@ from PyQt5.QtWidgets import (
 
 
 DEFAULT_TRANSPOSE = [0, 1, 2]
-PMIN, PMAX = 20, 97.5
+#PMIN, PMAX = 20, 97.5 ### for dark-field
+PMIN, PMAX = 1, 99.5 ### general use
 
 
 class HelpDialog(QDialog):
@@ -708,6 +709,7 @@ class Viewer(QWidget):
                 self.data_min,
                 self.data_max
             )
+            s.setDecimals(5)          # <-- number of digits after the decimal point
             s.setKeyboardTracking(False)
             s.setButtonSymbols(QDoubleSpinBox.NoButtons)
             s.setSizePolicy(
@@ -1167,6 +1169,11 @@ class Viewer(QWidget):
 
         for plane, view in self.slice_views.items():
             max_idx = view.slider.maximum()
+            
+            if plane == self.active_plane:
+                pass
+            else:
+                continue
 
             for i in range(max_idx + 1):
                 view.set_slice(i)
