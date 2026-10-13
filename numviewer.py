@@ -719,7 +719,15 @@ class Viewer(QWidget):
             )
             s.setFixedWidth(80)
             s.lineEdit().setAlignment(Qt.AlignCenter)
-            
+        
+        # Connect spinboxes to window/level adjustment
+        self.intensity_low_label.valueChanged.connect(
+            self.spinbox_window_changed
+        )
+        self.intensity_high_label.valueChanged.connect(
+            self.spinbox_window_changed
+        )
+        
         self.intensity_low_label.setValue(self.window_low)
         self.intensity_high_label.setValue(self.window_high)
         self.sync_controls()
@@ -919,22 +927,31 @@ class Viewer(QWidget):
         self.array_selector.setCurrentIndex(i)
     
     def sync_controls(self):
-        rng = self.data_max - self.data_min + 1e-8
+        rng = self.data_max - self.data_min
 
-        low_slider = int(1000 * (self.window_low - self.data_min) / rng)
-        high_slider = int(1000 * (self.window_high - self.data_min) / rng)
+        if rng <= 0:
+            return
 
-        # sliders
+        low_slider = round(
+            1000 * (self.window_low - self.data_min) / rng
+        )
+        high_slider = round(
+            1000 * (self.window_high - self.data_min) / rng
+        )
+
         self.intensity_low_slider.blockSignals(True)
         self.intensity_high_slider.blockSignals(True)
 
-        self.intensity_low_slider.setValue(low_slider)
-        self.intensity_high_slider.setValue(high_slider)
+        self.intensity_low_slider.setValue(
+            int(np.clip(low_slider, 0, 1000))
+        )
+        self.intensity_high_slider.setValue(
+            int(np.clip(high_slider, 0, 1000))
+        )
 
         self.intensity_low_slider.blockSignals(False)
         self.intensity_high_slider.blockSignals(False)
 
-        # spinboxes
         self.intensity_low_label.blockSignals(True)
         self.intensity_high_label.blockSignals(True)
 
@@ -1011,6 +1028,9 @@ class Viewer(QWidget):
 
         rng = self.data_max - self.data_min
 
+        if rng <= 0:
+            return
+
         win_low = self.data_min + (low / 1000.0) * rng
         win_high = self.data_min + (high / 1000.0) * rng
 
@@ -1020,31 +1040,17 @@ class Viewer(QWidget):
         if low >= high:
             return
 
-        self.window_low = max(self.data_min, low)
-        self.window_high = min(self.data_max, high)
+        low = float(np.clip(low, self.data_min, self.data_max))
+        high = float(np.clip(high, self.data_min, self.data_max))
 
-        rng = self.data_max - self.data_min
+        if low >= high:
+            return
 
-        low_slider = int(
-            1000 * (self.window_low - self.data_min) / rng
-        )
+        self.window_low = low
+        self.window_high = high
 
-        high_slider = int(
-            1000 * (self.window_high - self.data_min) / rng
-        )
-
-        # spinboxes (sync UI without recursion)
-        self.intensity_low_label.blockSignals(True)
-        self.intensity_high_label.blockSignals(True)
-
-        self.intensity_low_label.setValue(self.window_low)
-        self.intensity_high_label.setValue(self.window_high)
-
-        self.intensity_low_label.blockSignals(False)
-        self.intensity_high_label.blockSignals(False)
-
-        self.update_all_views()
         self.sync_controls()
+        self.update_all_views()
         
     def spinbox_window_changed(self):
         low = self.intensity_low_label.value()
