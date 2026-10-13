@@ -1150,12 +1150,12 @@ class Viewer(QWidget):
         key = self.current_array_key
 
         for plane, view in self.slice_views.items():
-            pixmap = view.image_label.pixmap()
-            if pixmap is None:
+            qimg = view._orig_qimage
+            if qimg is None:
                 continue
 
             filename = out_dir / f"{name}_{key}_{plane}{view.idx:04d}.png"
-            pixmap.save(str(filename))
+            qimg.save(str(filename))
 
         print(f"Saved current view to {out_dir}.")
     
@@ -1180,12 +1180,12 @@ class Viewer(QWidget):
                 view.set_slice(i)
                 QApplication.processEvents()  # ensure update_image runs
 
-                pixmap = view.image_label.pixmap()
-                if pixmap is None:
+                qimg = view._orig_qimage
+                if qimg is None:
                     continue
 
-                filename = out_dir / f"{name}_{key}_{plane}{i:04d}.png"
-                pixmap.save(str(filename))
+                filename = out_dir / f"{name}_{key}_{plane}{view.idx:04d}.png"
+                qimg.save(str(filename))
 
         print(f"Saved full volume to {out_dir}.")
 
