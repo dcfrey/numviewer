@@ -23,7 +23,7 @@ System-wide app installation on Ubuntu: `bash install.sh`.
 ## View
 
 - Cycle through transpositions: T
-- Center: C
+- Revert zoom & center: C
 - Rotate -90° / +90°: Shift + R / R
 - Flip horizontally / vertically: X / Y
 - Reset: Q

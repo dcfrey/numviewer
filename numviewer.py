@@ -512,8 +512,9 @@ class SliceView(QWidget):
                 min(self.slider.maximum(), self.idx + 1)
             )
 
-        # ---------------- Center ----------------
+        # ---------------- Reset zoom and center ----------------
         elif event.key() == Qt.Key_C:
+            self.zoom = 1.0
             self.pan_x = 0
             self.pan_y = 0
             self.update_image()
